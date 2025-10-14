@@ -24,6 +24,10 @@ class SqliteOntology(IndraOntology):
         build_sqlite_ontology(db_path)
         conn = sqlite3.connect(db_path)
         self.cur = conn.cursor()
+        self._initialized = True
+
+    def initialize(self):
+        pass
 
     def isa_or_partof(self, ns1, id1, ns2, id2):
         q = """SELECT 1 FROM relationships
