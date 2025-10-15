@@ -7,8 +7,7 @@ import sqlite3
 import logging
 from collections import defaultdict
 from indra.ontology.ontology_graph import IndraOntology
-from indra.ontology.bio.ontology import CACHE_DIR
-from indra.ontology.bio import bio_ontology
+from indra.ontology.bio.ontology import CACHE_DIR, BioOntology
 
 
 logger = logging.getLogger(__name__)
@@ -96,6 +95,7 @@ def build_sqlite_ontology(db_path=DEFAULT_SQLITE_ONTOLOGY, force=False):
             pass
 
     # Initialize the bio ontology and build the transitive closure
+    bio_ontology = BioOntology()
     bio_ontology.initialize()
     bio_ontology._build_transitive_closure()
 
