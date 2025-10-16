@@ -39,18 +39,28 @@ class SqliteOntology(IndraOntology):
         q = """SELECT children FROM child_lookup
                WHERE parent_id=? AND parent_ns=?
                LIMIT 1;"""
+        if rel_types and 'isa' in rel_types or 'partof' in rel_types:
+            rel_types |= {'isa_or_partof'}
         self.cur.execute(q, (id, ns))
         res = self.cur.fetchone()
         if res is None:
             yield from []
         else:
-            yield from [tuple(x.split(':', 1)) for x in res[0].split(',')]
+            children = res[0].split(',')
+            for child in children:
+                curie, rel_type = child.split('|', 1)
+                if rel_type in rel_types:
+                    yield tuple(curie.split(':', 1))
 
     def get_parents(self, ns, id):
-        return list(self.parent_rel(ns, id, {'isa', 'partof'}))
+        # Note that for isa/partof ontological child/parent is the
+        # opposite of the graph-based child/parent
+        return list(self.child_rel(ns, id, {'isa_or_partof'}))
 
     def get_children(self, ns, id, ns_filter=None):
-        children = list(self.child_rel(ns, id, {'isa', 'partof'}))
+        # Note that for isa/partof ontological child/parent is the
+        # opposite of the graph-based child/parent
+        children = list(self.parent_rel(ns, id, {'isa_or_partof'}))
         if ns_filter:
             children = [(cns, cid) for cns, cid in children
                         if cns in ns_filter]
@@ -60,12 +70,18 @@ class SqliteOntology(IndraOntology):
         q = """SELECT parents FROM parent_lookup
                WHERE child_id=? AND child_ns=?
                LIMIT 1;"""
+        if rel_types and 'isa' in rel_types or 'partof' in rel_types:
+            rel_types |= {'isa_or_partof'}
         self.cur.execute(q, (id, ns))
         res = self.cur.fetchone()
         if res is None:
             yield from []
         else:
-            yield from [tuple(x.split(':', 1)) for x in res[0].split(',')]
+            parents = res[0].split(',')
+            for parent in parents:
+                curie, rel_type = parent.split('|', 1)
+                if rel_type in rel_types:
+                    yield tuple(curie.split(':', 1))
 
     def get_node_property(self, ns, id, property):
         q = """SELECT properties FROM node_properties
@@ -132,11 +148,14 @@ def build_sqlite_ontology(db_path=DEFAULT_SQLITE_ONTOLOGY, force=False):
                          child.split(':', 1)[1], child.split(':')[0])
                         for child, parent in chunk]
         for cid, cns, pid, pns in chunk_values:
-            all_children[(pid, pns)].add('%s:%s' % (cns, cid))
-            all_parents[(cid, cns)].add('%s:%s' % (pns, pid))
+            all_children[(pid, pns)].add(
+                '%s:%s|%s' % (cns, cid, 'isa_or_partof'))
+            all_parents[(cid, cns)].add(
+                '%s:%s|%s' % (pns, pid, 'isa_or_partof'))
         cur.executemany("""INSERT INTO relationships (parent_id, 
-                        parent_ns, child_id, child_ns, rel_type 
-                        ) VALUES (?, ?, ?, ?, 'isa_or_partof');""", chunk_values)
+                            parent_ns, child_id, child_ns, rel_type)
+                            VALUES (?, ?, ?, ?, 'isa_or_partof');""",
+                        chunk_values)
 
     for parent, child, data in bio_ontology.edges(data=True):
         parent_ns, parent_id = bio_ontology.get_ns_id(parent)
@@ -144,6 +163,10 @@ def build_sqlite_ontology(db_path=DEFAULT_SQLITE_ONTOLOGY, force=False):
         rel_type = data.get('type')
         if rel_type in {'isa', 'partof'}:
             continue
+        all_children[(parent_id, parent_ns)].add(
+            '%s:%s|%s' % (child_ns, child_id, rel_type))
+        all_parents[(child_id, child_ns)].add(
+            '%s:%s|%s' % (parent_ns, parent_id, rel_type))
         cur.execute("""INSERT INTO relationships (parent_id,
                         parent_ns, child_id, child_ns, rel_type)
                         VALUES (?, ?, ?, ?, ?);""",
