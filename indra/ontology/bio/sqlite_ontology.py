@@ -111,26 +111,46 @@ def build_sqlite_ontology(db_path=DEFAULT_SQLITE_ONTOLOGY, force=False):
         child_ns TEXT NOT NULL,
         parent_id TEXT NOT NULL,
         parent_ns TEXT NOT NULL,
+        rel_type TEXT NOT NULL,
         UNIQUE (child_id, child_ns, parent_id, parent_ns)
     );"""
     cur.execute(q)
 
     # Insert into the database in chunks
     chunk_size = 10000
+    # Note: the transitive closure consists of pairs with the first element
+    # being the ontological child and the second the parent. However,
+    # in a graph representation isa/partof edges point from the ontological
+    # child to the ontological parent. Here, we need to follow the graph-based
+    # parent->child relationships, not the ontological ones.
     tc = sorted(bio_ontology.transitive_closure)
     all_children = defaultdict(set)
     all_parents = defaultdict(set)
     for i in range(0, len(tc), chunk_size):
         chunk = tc[i:i+chunk_size]
-        chunk_values = [(child.split(':', 1)[1], child.split(':')[0],
-                         parent.split(':', 1)[1], parent.split(':')[0])
+        chunk_values = [(parent.split(':', 1)[1], parent.split(':')[0],
+                         child.split(':', 1)[1], child.split(':')[0])
                         for child, parent in chunk]
         for cid, cns, pid, pns in chunk_values:
             all_children[(pid, pns)].add('%s:%s' % (cns, cid))
             all_parents[(cid, cns)].add('%s:%s' % (pns, pid))
-        cur.executemany("""INSERT INTO relationships (child_id, 
-                        child_ns, parent_id, parent_ns) 
-                        VALUES (?, ?, ?, ?);""", chunk_values)
+        cur.executemany("""INSERT INTO relationships (parent_id, 
+                        parent_ns, child_id, child_ns, rel_type 
+                        ) VALUES (?, ?, ?, ?, 'isa_or_partof');""", chunk_values)
+
+    for parent, child, data in bio_ontology.edges(data=True):
+        parent_ns, parent_id = bio_ontology.get_ns_id(parent)
+        child_ns, child_id = bio_ontology.get_ns_id(child)
+        rel_type = data.get('type')
+        if rel_type in {'isa', 'partof'}:
+            continue
+        cur.execute("""INSERT INTO relationships (parent_id,
+                        parent_ns, child_id, child_ns, rel_type)
+                        VALUES (?, ?, ?, ?, ?);""",
+                    (parent_id, parent_ns, child_id, child_ns, rel_type))
+
+
+
     q = """CREATE INDEX idx_child_parent ON relationships 
         (child_id, child_ns, parent_id, parent_ns);"""
     cur.execute(q)
@@ -182,6 +202,7 @@ def build_sqlite_ontology(db_path=DEFAULT_SQLITE_ONTOLOGY, force=False):
         props = json.dumps(bio_ontology.nodes[node])
         cur.execute("INSERT INTO node_properties (id, ns, properties) "
                     "VALUES (?, ?, ?);", (id, ns, props))
+
 
     conn.commit()
     conn.close()
