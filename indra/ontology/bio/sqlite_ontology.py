@@ -172,8 +172,6 @@ def build_sqlite_ontology(db_path=DEFAULT_SQLITE_ONTOLOGY, force=False):
                         VALUES (?, ?, ?, ?, ?);""",
                     (parent_id, parent_ns, child_id, child_ns, rel_type))
 
-
-
     q = """CREATE INDEX idx_child_parent ON relationships 
         (child_id, child_ns, parent_id, parent_ns);"""
     cur.execute(q)
@@ -225,7 +223,6 @@ def build_sqlite_ontology(db_path=DEFAULT_SQLITE_ONTOLOGY, force=False):
         props = json.dumps(bio_ontology.nodes[node])
         cur.execute("INSERT INTO node_properties (id, ns, properties) "
                     "VALUES (?, ?, ?);", (id, ns, props))
-
 
     conn.commit()
     conn.close()
