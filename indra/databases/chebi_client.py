@@ -162,29 +162,17 @@ def get_chebi_entry_from_web(chebi_id):
 
     Returns
     -------
-    xml.etree.ElementTree.Element
-        An ElementTree element representing the ChEBI entry.
+    dict
+        A dictionary containing the ChEBI entry data. If the lookup
+        fails, None is returned.
     """
-    url_base = 'http://www.ebi.ac.uk/webservices/chebi/2.0/test/'
-    url_fmt = url_base + 'getCompleteEntity?chebiId=%s'
+    url_fmt = 'https://www.ebi.ac.uk/chebi/backend/api/public/compound/%s/'
     resp = requests.get(url_fmt % chebi_id)
     if resp.status_code != 200:
         logger.warning("Got bad code form CHEBI client: %s" % resp.status_code)
         return None
-    tree = etree.fromstring(resp.content)
-    path = 'n:Body/c:getCompleteEntityResponse/c:return'
-    elem = tree.find(path, namespaces=chebi_xml_ns)
-    return elem
-
-
-def _get_chebi_value_from_entry(entry, key):
-    if entry is None:
-        return None
-    path = 'c:%s' % key
-    elem = entry.find(path, namespaces=chebi_xml_ns)
-    if elem is not None:
-        return elem.text
-    return None
+    data = resp.json()
+    return data
 
 
 def get_chebi_name_from_id_web(chebi_id):
@@ -201,8 +189,8 @@ def get_chebi_name_from_id_web(chebi_id):
         The name corresponding to the given ChEBI ID. If the lookup
         fails, None is returned.
     """
-    entry = get_chebi_entry_from_web(chebi_id)
-    return _get_chebi_value_from_entry(entry, 'chebiAsciiName')
+    json_data = get_chebi_entry_from_web(chebi_id)
+    return json_data.get('name') if json_data else None
 
 
 def get_inchi_key(chebi_id):
@@ -219,8 +207,11 @@ def get_inchi_key(chebi_id):
         The InChIKey corresponding to the given ChEBI ID. If the lookup
         fails, None is returned.
     """
-    entry = get_chebi_entry_from_web(chebi_id)
-    return _get_chebi_value_from_entry(entry, 'inchiKey')
+    json_data = get_chebi_entry_from_web(chebi_id)
+    if not json_data:
+        return None
+    structure_data = json_data.get('default_structure')
+    return structure_data.get('standard_inchi_key') if structure_data else None
 
 
 def get_primary_id(chebi_id):
