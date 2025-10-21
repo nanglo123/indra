@@ -337,3 +337,9 @@ def test_stmt_to_rows():
     assert len(rows) == 1
     assert rows[0] == ['a', 'b', 'HGNC', '1', 'TEXT', 'b', None, None,
                        'Activation', 1, 8197018847132618, 1, {None: 1}, None]
+
+    source_count = {-25125767941752990: {'db1': 1}}
+    rows = statement_to_rows(st2, source_counts=source_count)
+    assert rows[0] == ['a', 'c', 'HGNC', '1', 'TEXT', 'c', None, None,
+                       'Inhibition', 1, -25125767941752990, 0.76, {'db1': 1}, None]
+
