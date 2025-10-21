@@ -1,7 +1,6 @@
 import os
 import logging
 import requests
-from lxml import etree
 from functools import lru_cache, cmp_to_key
 from indra.util import read_unicode_csv
 from indra.databases.obo_client import OboClient
@@ -9,10 +8,6 @@ from indra.databases.obo_client import OboClient
 _obo_client = OboClient(prefix='chebi')
 
 logger = logging.getLogger(__name__)
-
-# Namespaces used in the XML
-chebi_xml_ns = {'n': 'http://schemas.xmlsoap.org/soap/envelope/',
-                'c': 'https://www.ebi.ac.uk/webservices/chebi'}
 
 
 def _add_prefix(chid):
