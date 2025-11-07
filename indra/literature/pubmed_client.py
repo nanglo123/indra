@@ -32,6 +32,7 @@ pubmed_fetch = 'https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi'
 pubmed_archive = "https://ftp.ncbi.nlm.nih.gov/pubmed"
 pubmed_archive_baseline = pubmed_archive + "/baseline/"
 pubmed_archive_update = pubmed_archive + "/updatefiles/"
+pmid_to_pmc_download_url = "https://ftp.ncbi.nlm.nih.gov/pub/pmc/oa_file_list.csv"
 RETRACTIONS_FILE = os.path.join(RESOURCES_PATH, "pubmed_retractions.tsv")
 
 
@@ -1449,7 +1450,7 @@ def get_pmid_to_package_url_mapping(fname=None) -> Dict[str, str]:
         reader = csv.DictReader(open(fname, 'r'))
     else:
         logger.info("Downloading PMC file list")
-        res = requests.get("https://ftp.ncbi.nlm.nih.gov/pub/pmc/oa_file_list.csv")
+        res = requests.get(pmid_to_pmc_download_url)
         res.raise_for_status()
         reader = csv.DictReader(StringIO(res.text))
     mapping = {
